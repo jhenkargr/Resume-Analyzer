@@ -13,14 +13,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -29,19 +25,14 @@ public class ResumeService {
 
     private final ResumeRepository resumeRepository;
     private final UserRepository userRepository;
-    private final Path uploadDir;
+    private final SupabaseStorageService supabaseStorageService;
 
     public ResumeService(ResumeRepository resumeRepository,
                          UserRepository userRepository,
-                         @Value("${app.file-storage.upload-dir:./uploads}") String uploadDir) {
+                         SupabaseStorageService supabaseStorageService) {
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
-        this.uploadDir = Paths.get(uploadDir).toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(this.uploadDir);
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to create upload directory", e);
-        }
+        this.supabaseStorageService = supabaseStorageService;
     }
 
     public Resume uploadResume(Long userId, MultipartFile file) throws IOException {
@@ -61,46 +52,61 @@ public class ResumeService {
             throw new IllegalArgumentException("Only PDF, DOCX, and TXT files are supported");
         }
 
-        String storedFileName = UUID.randomUUID() + "." + extension;
-        Path destination = uploadDir.resolve(storedFileName);
-        Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
+        byte[] fileBytes = file.getBytes();
+        String text = cleanExtractedText(extractTextFromBytes(fileBytes, originalFileName));
 
-        String text = cleanExtractedText(extractTextFromPath(destination));
+        String storedFileName = UUID.randomUUID().toString() + "." + extension;
+        String supabaseLink = supabaseStorageService.getFileUrl(storedFileName);
 
         Resume resume = Resume.builder()
             .user(user)
             .fileName(originalFileName)
             .fileType(extension.toUpperCase(Locale.ROOT))
-            .filePath(destination.toString())
+            .filePath(supabaseLink)
             .extractedText(text)
             .build();
 
-        return resumeRepository.save(resume);
+        Resume savedResume = resumeRepository.save(resume);
+
+        try {
+            supabaseStorageService.saveFile(storedFileName, extension, fileBytes);
+        } catch (Exception e) {
+            // Log warning but continue if Supabase is not configured
+        }
+
+        return savedResume;
     }
 
-    public String extractTextFromPath(Path path) throws IOException {
-        String lower = path.getFileName().toString().toLowerCase(Locale.ROOT);
+    public byte[] getResumeFile(Long resumeId) {
+        Resume resume = resumeRepository.findById(resumeId).orElse(null);
+        if (resume == null || resume.getFilePath() == null) return null;
+        String filePath = resume.getFilePath();
+        String storedFileName = filePath.substring(filePath.lastIndexOf("/") + 1);
+        return supabaseStorageService.getFile(storedFileName);
+    }
+
+    public String extractTextFromBytes(byte[] bytes, String fileName) throws IOException {
+        String lower = fileName.toLowerCase(Locale.ROOT);
         if (lower.endsWith(".txt")) {
-            return Files.readString(path, StandardCharsets.UTF_8);
+            return new String(bytes, StandardCharsets.UTF_8);
         }
 
         if (lower.endsWith(".pdf")) {
-            File pdfFile = path.toFile();
-            try (PDDocument document = Loader.loadPDF(pdfFile)) {
+            try (PDDocument document = Loader.loadPDF(bytes)) {
                 PDFTextStripper stripper = new PDFTextStripper();
                 return stripper.getText(document);
             }
         }
 
         if (lower.endsWith(".docx")) {
-            try (InputStream is = Files.newInputStream(path);
+            try (InputStream is = new ByteArrayInputStream(bytes);
                  XWPFDocument document = new XWPFDocument(is);
                  XWPFWordExtractor extractor = new XWPFWordExtractor(document)) {
                 return extractor.getText();
             }
         }
 
-        return Files.readString(path, StandardCharsets.UTF_8);
+        return new String(bytes, StandardCharsets.UTF_8);
     }
 
     public void deleteResume(Long resumeId, Long userId) {
@@ -113,8 +119,9 @@ public class ResumeService {
 
         if (resume.getFilePath() != null) {
             try {
-                Path file = Paths.get(resume.getFilePath());
-                Files.deleteIfExists(file);
+                String filePath = resume.getFilePath();
+                String storedFileName = filePath.substring(filePath.lastIndexOf("/") + 1);
+                supabaseStorageService.deleteFile(storedFileName);
             } catch (Exception ignored) {
             }
         }

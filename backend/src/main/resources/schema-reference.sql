@@ -27,11 +27,24 @@ CREATE TABLE IF NOT EXISTS resumes (
     user_id         BIGINT              NOT NULL,
     file_name       VARCHAR(255)        NOT NULL,
     file_type       VARCHAR(10)         NOT NULL,          -- PDF / DOCX
-    file_path       VARCHAR(500)        NOT NULL,          -- storage location on disk/S3
+    file_path       VARCHAR(500)        NOT NULL,          -- link/URL to Supabase file, e.g. supabase://resume_files/{uuid}.{ext}
     extracted_text  LONGTEXT,                              -- parsed raw text
     uploaded_at     TIMESTAMP           DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_resumes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- ========================================
+-- SUPABASE POSTGRESQL TABLE REFERENCE
+-- (Created automatically on Supabase DB)
+-- ========================================
+-- CREATE TABLE IF NOT EXISTS resume_files (
+--     id              SERIAL PRIMARY KEY,
+--     resume_id       BIGINT UNIQUE,
+--     file_name       VARCHAR(255) NOT NULL,
+--     file_type       VARCHAR(10) NOT NULL,
+--     file_content    BYTEA NOT NULL,
+--     uploaded_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- );
 
 -- ========================================
 -- ANALYSES  (one resume -> many AI analysis runs, so score history/trends work)

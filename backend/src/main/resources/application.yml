@@ -43,6 +43,11 @@ app:
   file-storage:
     upload-dir: ${UPLOAD_DIR:./uploads}
 
+  supabase:
+    url: ${SUPABASE_URL:}
+    key: ${SUPABASE_KEY:}
+    bucket: ${SUPABASE_BUCKET:resumes}
+
   gemini:
     api-key: ${GEMINI_API_KEY:}
     model: ${GEMINI_MODEL:gemini-2.5-flash}

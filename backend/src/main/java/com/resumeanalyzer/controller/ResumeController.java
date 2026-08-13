@@ -131,6 +131,37 @@ public class ResumeController {
         ));
     }
 
+    @GetMapping("/{id}/download")
+    public ResponseEntity<?> downloadResume(Authentication authentication, @PathVariable("id") Long id) {
+        User user = getUser(authentication);
+        if (user == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Unauthorized"));
+
+        Resume resume = resumeRepository.findById(id)
+                .filter(r -> r.getUser().getId().equals(user.getId()))
+                .orElse(null);
+
+        if (resume == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Resume not found"));
+        }
+
+        byte[] content = resumeService.getResumeFile(resume.getId());
+        if (content == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "File content not found"));
+        }
+
+        String contentType = "text/plain";
+        if ("PDF".equalsIgnoreCase(resume.getFileType())) {
+            contentType = "application/pdf";
+        } else if ("DOCX".equalsIgnoreCase(resume.getFileType())) {
+            contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        }
+
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resume.getFileName() + "\"")
+                .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+                .body(content);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteResume(Authentication authentication, @PathVariable("id") Long id) {
         User user = getUser(authentication);

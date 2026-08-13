@@ -4,25 +4,21 @@ import com.resumeanalyzer.repository.ResumeRepository;
 import com.resumeanalyzer.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 class ResumeServiceTest {
 
     @Test
-    void extractsTextFromPlainTextPath() throws Exception {
+    void extractsTextFromPlainBytes() throws Exception {
         ResumeRepository resumeRepository = mock(ResumeRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
-        ResumeService resumeService = new ResumeService(resumeRepository, userRepository, "./uploads");
+        SupabaseStorageService supabaseStorageService = mock(SupabaseStorageService.class);
+        ResumeService resumeService = new ResumeService(resumeRepository, userRepository, supabaseStorageService);
 
-        Path tempFile = Files.createTempFile("test_resume", ".txt");
-        Files.writeString(tempFile, "Senior Java developer with Spring Boot experience.");
+        byte[] bytes = "Senior Java developer with Spring Boot experience.".getBytes(java.nio.charset.StandardCharsets.UTF_8);
 
-        String extracted = resumeService.extractTextFromPath(tempFile);
-        Files.deleteIfExists(tempFile);
+        String extracted = resumeService.extractTextFromBytes(bytes, "resume.txt");
 
         assertThat(extracted).contains("Senior Java developer");
     }
