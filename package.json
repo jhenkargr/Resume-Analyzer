@@ -1,0 +1,7 @@
+{
+  "name": "ai-resume-analyzer-workspace",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "cd frontend && npm install && npm run dev"
+  }
+}
