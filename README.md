@@ -35,7 +35,24 @@ Switch to MySQL (optional)
 Docker (optional)
 - A `docker-compose.dev.yml` is available to run backend + MySQL; run `docker-compose -f docker-compose.dev.yml up --build` from the repo root.
 
-If you want I can: set up separate Dockerfiles for backend/frontend, or change the default ports. Tell me which next.
+Deploying to Render
+-------------------
+The repository is pre-configured with a Render Blueprint (`render.yaml`).
+
+### Steps to Deploy:
+1. Push your code to your GitHub repository.
+2. Log in to the [Render Dashboard](https://dashboard.render.com).
+3. Click **New** -> **Blueprint**.
+4. Connect your GitHub repository.
+5. Render will automatically detect the `render.yaml` configuration.
+6. Provide the required environment variables in the Render console:
+   - `DB_URL`: Your production MySQL JDBC connection URL (e.g., Clever Cloud).
+   - `DB_USERNAME`: Your MySQL database username.
+   - `DB_PASSWORD`: Your MySQL database password.
+   - `GEMINI_API_KEY`: Your Google Gemini API Key.
+   - `SUPABASE_URL`: Your Supabase API URL (e.g., `https://gahdqyfkzpnhygcqetwc.supabase.co`).
+   - `SUPABASE_KEY`: Your Supabase secret key (`sb_secret_...`).
+7. Click **Approve** to deploy. Render will build the container using `backend/Dockerfile` and host it on a free Web Service.
 
 Smoke test
 ----------
